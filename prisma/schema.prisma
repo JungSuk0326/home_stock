@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 카테고리 (식품, 생활용품, 의약품 등)
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?  // 아이콘 이름 또는 이모지
+  color       String?  // 색상 코드 (예: #FF5733)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       Item[]
+}
+
+// 보관 위치 (냉장고, 창고, 욕실 등)
+model Location {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       Item[]
+}
+
+// 재고 아이템 (메인 모델)
+model Item {
+  id           String    @id @default(cuid())
+
+  // 식별 정보
+  barcode      String?   @unique  // 바코드 번호
+  qrCode       String?   @unique  // QR 코드 데이터
+  name         String                // 제품명
+  description  String?               // 상세 설명
+  brand        String?               // 브랜드/제조사
+
+  // 재고 정보
+  quantity     Int       @default(0)      // 현재 수량
+  minQuantity  Int       @default(0)      // 최소 재고 (알림 기준)
+  unit         String    @default("개")   // 단위 (개, kg, L 등)
+
+  // 분류
+  categoryId   String
+  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locationId   String
+  location     Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  // 날짜 정보
+  expiryDate   DateTime?  // 유통기한
+  purchaseDate DateTime?  // 구매일
+  openedDate   DateTime?  // 개봉일
+
+  // 가격/구매 정보
+  price        Float?     // 구매가격
+  purchaseStore String?   // 구매처
+
+  // 기타
+  imageUrl     String?    // 제품 이미지 URL
+  memo         String?    // 메모
+
+  // 타임스탬프
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // 재고 변동 이력
+  stockHistory StockHistory[]
+
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([barcode])
+  @@index([qrCode])
+}
+
+// 재고 변동 이력 (입출고 기록)
+model StockHistory {
+  id          String   @id @default(cuid())
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  type        String   // IN (입고), OUT (출고), ADJUST (조정)
+  quantity    Int      // 변동 수량 (양수: 입고, 음수: 출고)
+  beforeQty   Int      // 변동 전 수량
+  afterQty    Int      // 변동 후 수량
+
+  reason      String?  // 변동 사유
+  memo        String?  // 메모
+
+  createdAt   DateTime @default(now())
+
+  @@index([itemId])
+  @@index([type])
+  @@index([createdAt])
+}
